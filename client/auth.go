@@ -2,46 +2,46 @@ package client
 
 import (
 	"context"
-	"fmt"
-	pb "github.com/yoneyan/vm_mgr/proto/proto-go"
+	pb "github.com/vmmgr/controller/proto/proto-go"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"log"
 	"time"
 )
 
 func GenerateTokenClient(user, pass string) *AuthResult {
-	fmt.Println(GetgRPCServerAddress())
-	conn, err := grpc.Dial(GetgRPCServerAddress(), grpc.WithInsecure(), grpc.WithBlock())
+	log.Println(getServerAddress())
+	conn, err := grpc.Dial(getServerAddress(), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		log.Println("Not connect; %v", err)
+		log.Printf("Not connect; %v\n", err)
 	}
 	defer conn.Close()
-	c := pb.NewGrpcClient(conn)
+	c := pb.NewControllerClient(conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	r, err := c.GenerateToken(ctx, &pb.Base{User: user, Pass: pass})
+	r, err := c.GenerateToken(ctx, &pb.UserData{Name: user, Pass: pass})
 	if err != nil {
-		log.Println("could not greet: %v", err)
+		log.Printf("Not connect; %v\n", err)
 	}
-	return &AuthResult{Result: r.Result, Token: r.Token, UserName: r.Name, UserID: int(r.Id)}
+
+	return &AuthResult{Result: r.Status, Token: r.Data1}
 }
 
 func CheckTokenClient(token string) Result {
-	conn, err := grpc.Dial(GetgRPCServerAddress(), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(getServerAddress(), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(2*time.Second))
 	if err != nil {
-		log.Println("Not connect; %v", err)
+		log.Printf("Not connect; %v\n", err)
 	}
 	defer conn.Close()
-	c := pb.NewGrpcClient(conn)
+	c := pb.NewControllerClient(conn)
+	header := metadata.New(map[string]string{"authorization": token})
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	r, err := c.CheckToken(ctx, &pb.Base{Token: token})
+	r, err := c.GetToken(ctx, &pb.TokenData{Token: token})
 	if err != nil {
-		log.Println("could not greet: %v", err)
+		log.Printf("Not connect; %v\n", err)
 	}
 
 	return Result{
@@ -51,19 +51,18 @@ func CheckTokenClient(token string) Result {
 }
 
 func DeleteTokenClient(token string) Result {
-	conn, err := grpc.Dial(GetgRPCServerAddress(), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(getServerAddress(), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(2*time.Second))
 	if err != nil {
-		log.Println("Not connect; %v", err)
+		log.Printf("Not connect; %v\n", err)
 	}
 	defer conn.Close()
-	c := pb.NewGrpcClient(conn)
+	c := pb.NewControllerClient(conn)
+	header := metadata.New(map[string]string{"authorization": token})
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	r, err := c.DeleteToken(ctx, &pb.Base{Token: token})
+	r, err := c.DeleteToken(ctx, &pb.Null{})
 	if err != nil {
-		log.Println("could not greet: %v", err)
+		log.Printf("Not connect; %v\n", err)
 	}
 	return Result{
 		Result: r.Status,
@@ -73,7 +72,7 @@ func DeleteTokenClient(token string) Result {
 
 /*
 func GetAllTokenClient(token string) bool {
-	conn, err := grpc.Dial(GetgRPCServerAddress(), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(getServerAddress(), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Println("Not connect; %v", err)
 	}
